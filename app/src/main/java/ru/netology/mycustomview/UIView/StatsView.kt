@@ -1,5 +1,6 @@
 package ru.netology.mycustomview.UIView
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -7,6 +8,7 @@ import android.graphics.PointF
 import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.View
+import android.view.animation.LinearInterpolator
 import androidx.annotation.StyleRes
 import androidx.core.content.withStyledAttributes
 import ru.netology.mycustomview.R
@@ -30,6 +32,9 @@ class StatsView @JvmOverloads constructor(
     private var lineWidth = AndroidUtils.dp(context, 5)
     private var colors = emptyList<Int>()
 
+    private var progress = 0F
+    private var valueAnimator: ValueAnimator? = null
+
     init {
         context.withStyledAttributes(attributeSet, R.styleable.StatsView) {
             textSize = getDimension(R.styleable.StatsView_textSize, textSize)
@@ -46,7 +51,7 @@ class StatsView @JvmOverloads constructor(
     var data: List<Float> = emptyList()
         set(value) {
             field = value
-            invalidate()
+            update()
         }
 
     private var radius = 0F
@@ -82,16 +87,17 @@ class StatsView @JvmOverloads constructor(
             return
         }
 
-        var startAngle = -90F
+        var startAngle = -90F + progress * 360
         data.forEachIndexed { index, datum ->
             val angle = 360F * datum / data.sum()
             paint.color = colors.getOrElse(index) {generateRandomColor()}
-            canvas.drawArc(oval, startAngle, angle, false, paint)
+            canvas.drawArc(oval, startAngle, angle * progress, false, paint)
             startAngle += angle
         }
 
         paint.color = colors.first()
-        canvas.drawCircle(center.x, center.y - radius, 1F, paint)
+        canvas.drawArc(oval, startAngle, startAngle / 100, false, paint)
+        //canvas.drawCircle(center.x, center.y - radius, 1F, paint)
 
         canvas.drawText(
             "%.2f%%".format(100F),
@@ -102,4 +108,23 @@ class StatsView @JvmOverloads constructor(
     }
 
     private fun generateRandomColor() = Random.nextInt(0xFF000000.toInt(), 0xFFFFFFFF.toInt())
+
+    private fun update() {
+        valueAnimator?.let {
+            it.removeAllListeners()
+            it.cancel()
+        }
+        progress = 0F
+
+        valueAnimator = ValueAnimator.ofFloat(0F, 1F).apply {
+            addUpdateListener { anim ->
+                progress = anim.animatedValue as Float
+                invalidate()
+            }
+            duration = 3000
+            interpolator = LinearInterpolator()
+        }.also {
+            it.start()
+        }
+    }
 }
